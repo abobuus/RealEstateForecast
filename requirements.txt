@@ -1,0 +1,29 @@
+# Data
+pandas
+numpy
+openpyxl
+
+# ML
+scikit-learn
+xgboost
+lightgbm
+catboost
+
+# Time series
+statsmodels
+prophet
+
+# Deep learning (tensorflow не поддерживает Python 3.14)
+torch
+
+# Interpretability
+shap
+
+# Visualization
+matplotlib
+seaborn
+plotly
+
+# Jupyter
+jupyter
+ipykernel

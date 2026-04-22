@@ -1,0 +1,20 @@
+# Данные — не заливать на GitHub (большой вес)
+data/
+
+# Инструкции для Claude — не заливать
+CLAUDE.md
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
