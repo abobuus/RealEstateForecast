@@ -15,6 +15,12 @@ env/
 # Jupyter
 .ipynb_checkpoints/
 
+# Результаты и графики — генерируются заново
+results/
+
+# Личные заметки
+presentation_notes.txt
+
 # OS
 .DS_Store
 Thumbs.db
