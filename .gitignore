@@ -1,5 +1,10 @@
 # Данные — не заливать на GitHub (большой вес)
-data/
+data/*
+!data/russia_region_codes.csv
+!data/processed/
+data/processed/*
+!data/processed/price_timeseries_2018_2026.csv
+!data/processed/macro_quarterly.csv
 
 # Инструкции для Claude — не заливать
 CLAUDE.md
