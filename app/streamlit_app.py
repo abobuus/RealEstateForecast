@@ -143,26 +143,43 @@ forecast_end = _seasons_for_year[forecast_season_label]
 
 # ── Compute forecast quarters ─────────────────────────────────────────────────
 future_dates = pd.date_range(start=_forecast_start, end=forecast_end, freq="QS")
-n_quarters   = len(future_dates)
 
 # ── Build forecast ────────────────────────────────────────────────────────────
 @st.cache_data(show_spinner=False)
 def get_forecast(region_code: int, cbr: float, inflation: float,
-                 future_dates_list: list):
+                 future_dates_list: list, last_price: float):
     model     = load_model(region_code)
-    known     = macro[["period", "cbr_rate", "inflation"]].copy()
     fut_dates = pd.DatetimeIndex(future_dates_list)
-    fut_macro = pd.DataFrame({"period": fut_dates, "cbr_rate": cbr, "inflation": inflation})
-    full      = pd.concat([known, fut_macro]).drop_duplicates("period").sort_values("period")
-    fc        = model.predict(full.rename(columns={"period": "ds"}))
-    return fc
+    fc        = model.predict(pd.DataFrame({"ds": fut_dates}))
 
-with st.spinner("Считаю прогноз..."):
-    fc = get_forecast(region_code, cbr_scenario, inflation_scenario,
-                      future_dates.tolist())
+    # Economic adjustment applied on top of trend forecast:
+    #   CBR:       each 1pp below 16% → +0.05%/quarter; above → −0.05%/quarter
+    #   Inflation: each 1pp above 7%  → +0.02%/quarter (nominal price push)
+    cbr_adj       = -(cbr - 16) * 0.15
+    inflation_adj = (inflation - 7) * 0.02
+    macro_adj     = cbr_adj + inflation_adj
+
+    # Soft floor: map negative adjusted rates to small positive via exp decay
+    fc_fut = fc[["ds", "yhat"]].copy().reset_index(drop=True)
+    price  = last_price
+    prices = []
+    for rate in fc_fut["yhat"].values:
+        adjusted = rate + macro_adj
+        effective = adjusted if adjusted >= 0.5 else 0.5 * np.exp(adjusted / 10)
+        price = price * (1 + effective / 100)
+        prices.append(price)
+    fc_fut["yhat"] = prices
+    return fc_fut
 
 hist      = ts[ts["region"] == region_code].sort_values("period")
-train_end = pd.Timestamp(meta["train_end"])
+
+last_price_for_region = float(
+    hist["price_sqm"].iloc[-1] if len(hist) else meta.get("last_prices", {}).get(str(region_code), 300_000)
+)
+
+with st.spinner("Считаю прогноз..."):
+    fc_scenario = get_forecast(region_code, cbr_scenario, inflation_scenario,
+                               future_dates.tolist(), last_price_for_region)
 
 # ── Header ────────────────────────────────────────────────────────────────────
 st.title(f"Прогноз цены за м² — {region_name_selected}")
@@ -170,7 +187,6 @@ st.title(f"Прогноз цены за м² — {region_name_selected}")
 # Metrics
 last_price          = float(hist["price_sqm"].iloc[-1]) if len(hist) else None
 last_period_label   = fmt_q(hist["period"].iloc[-1]) if len(hist) else "—"
-fc_scenario         = fc[fc["ds"].isin(future_dates)]
 forecast_end_price  = float(fc_scenario["yhat"].iloc[-1]) if len(fc_scenario) else None
 forecast_end_label  = f"{QUARTER_SEASONS[future_dates[-1].quarter]} {future_dates[-1].year}" if len(future_dates) else "—"
 
